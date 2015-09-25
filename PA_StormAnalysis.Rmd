@@ -1,0 +1,125 @@
+#Impact of servere weather events on population health and the economy in the US  
+## Synopsis  
+This report aims to describe the impact of severe weather events in the US on population health and the economy by answering two questions. Across the United States, which types of events are most harmful with respect to population health? Across the United States, which types of events have the greatest economic consequences? Underlying analysis helps to anwser these two questions by exploring the data of the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database.  
+Impact on population health is assessed by a Pareto analsysis on the weather event types with highest injury and fatality rates in this database.  
+Economical impact is assessed by a Pareto analsyis on the weather event types causing the higest total cost for property and crop damage.
+ 
+## Data Processing  
+We record the platform information on which this analysis is created.
+```{r, echo=T, warning = F, message = F}
+sessionInfo()
+```
+We download the file.
+```{r, echo=T, warning = F, message = F, cache = T}
+fileurl = "http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+download.file(fileurl, destfile = "StormData.csv.bz2")
+date()
+```
+Then we unzip it and save the unzipped file.
+```{r, echo=T, warning = F, message = F, cache = T}
+library(R.utils)
+bunzip2("StormData.csv.bz2","StormData.csv",overwrite=TRUE, remove=FALSE)
+``` 
+We load the data set and convert it to a dplyr table for easier processing.
+```{r, echo=T, warning = F, message = F}
+library(dplyr)
+StormData <- read.csv("StormData.csv", header = TRUE)
+StormData <- tbl_df(StormData)
+``` 
+We check the amount of obervations loaded.
+```{r, echo=T, warning = F, message = F}
+dim(StormData)
+```
+We will assess the impact on population heatlh by looking at the fatalities and injuries variables per event type over time across the US. From [www.ncdc.noaa.gov/stormevents/details.jsp](http://www.ncdc.noaa.gov/stormevents/details.jsp) we know that only from 1996 to present, all the 48 event types are recorded as defined in NWS Directive 10-1605. As the purpose is to compare between event types, we filter out all data that is from before 1996.
+
+First convert to R date format and extract the year.
+```{r, echo=T, warning = F, message = F}
+StormData$Year = strptime(StormData$BGN_DATE, format ="%m/%d/%Y %H:%M:%S")
+StormData$Year = as.numeric(format(StormData$Year,'%Y'))
+table(StormData$Year)
+```
+Then keep only the data after 1995
+```{r, echo=T, warning = F, message = F}
+StormData = StormData[StormData$Year > 1995,]
+table(StormData$Year)
+```
+For the economical impact we need the amounts taking into consideration the exponent information.
+```{r, echo=T, warning = F, message = F}
+summary(StormData$PROPDMGEXP)
+summary(StormData$CROPDMGEXP)
+```
+We will only convert the K (kilo) , M (million) and B(billion) exponents and leave other as is.
+```{r, echo=T, warning = F, message = F}
+StormData$PROPDMG = ifelse(StormData$PROPDMGEXP == "K",
+                                StormData$PROPDMG * 10^3,
+                                ifelse( StormData$PROPDMGEXP == "M",
+                                        StormData$PROPDMG * 10^6,
+                                        ifelse (StormData$PROPDMGEXP== "B",
+                                                StormData$PROPDMG * 10^9,
+                                                StormData$PROPDMG
+                                        )
+                                )
+                     )
+StormData$CROPDMG = ifelse(StormData$CROPDMGEXP == "K",
+                                StormData$CROPDMG * 10^3,
+                                ifelse( StormData$CROPDMGEXP == "M",
+                                        StormData$CROPDMG * 10^6,
+                                        ifelse( StormData$CROPDMGEXP == "B",
+                                                StormData$CROPDMG * 10^9,
+                                                StormData$CROPDMG
+                                        )
+                                )
+                     )
+```
+## Results
+
+### The health impact.
+We group the data per event type across the US and over time and we calculate the total of the injuries and fatalities variables.
+
+```{r, echo=T, warning = F, message = F}
+StormData$BGN_DATE = as.character(StormData$BGN_DATE) ## to avoid POSIX error in dplyr group_by
+HealthImpact = StormData %>%
+        group_by(EVTYPE) %>%
+        summarise(                
+                totFatal = sum(FATALITIES, na.rm = T ),
+                totInjur = sum(INJURIES, na.rm = T)
+                  )
+```
+Using Pareto analysis to find the most harmful event types by looking at the Fatalities and Injuries respectively. 
+Preparing the vectors to create the Pareto chart
+```{r, echo=T, warning = F, message = F}
+HI_F = HealthImpact$totFatal
+HI_I = HealthImpact$totInjur
+names(HI_F) = HealthImpact$EVTYPE
+names(HI_I) = HealthImpact$EVTYPE
+```
+Creating the Pareto charts for the two vriables focusing on most important event types. The red lines are at 80% of the total cumulative impact whereas the Pareto charts and tables are on the top 15 for readability.
+```{r, echo=T, warning = F, message = F,Pareto_1_2}
+Top_HI_F = head(sort(HI_F, decreasing=TRUE), 15)
+Top_HI_I = head(sort(HI_I, decreasing=TRUE), 15)
+library(qcc)
+pareto.chart(Top_HI_F, ylab = "Fatalities", main = "Most fatal weather event types")
+abline(h=(sum(HI_F)*.8),col="red",lwd=2)
+pareto.chart(Top_HI_I, ylab = "Injuries", main = "Most injuring weather event types")
+abline(h=(sum(HI_I)*.8),col="red",lwd=2)
+```
+
+### The economical impact
+We group the data per event type across the US and over time and we calculate the total dollar value of damage per event type to properties and crop. Inflation is not taken into consideration in this analysis.
+```{r, echo=T, warning = F, message = F}
+EconImp = StormData %>%
+        group_by(EVTYPE) %>%
+        summarise(totDMG = sum(PROPDMG) + sum(CROPDMG))
+```
+Using Pareto analysis to find the event types with highest economical impact in terms of total damage cost.
+Preparing the vector to create the pareto chart, and going to million USD values.
+```{r, echo=T, warning = F, message = F}
+EI_D = EconImp$totDMG / 10^6
+names(EI_D) = EconImp$EVTYPE
+```
+Creating the Pareto chart for the economical impact. The red line is at 80% of the total cumulative impact whereas the Pareto chart and table are on the top 15 for readability.
+```{r,echo=T, warning = F, message = F, Pareto3}
+Top_EI_D = head(sort(EI_D, decreasing=TRUE), 15)
+pareto.chart(Top_EI_D, ylab = "Damage (in MUSD)", main = "Highest damage cost weather event types")
+abline(h=(sum(EI_D)*.8),col="red",lwd=2)
+``` 

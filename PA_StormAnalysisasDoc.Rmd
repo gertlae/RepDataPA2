@@ -1,8 +1,14 @@
-#Impact of severe weather events on population health and the economy in the US  
+---
+title: "Untitled"
+author: "gertlae"
+date: "Saturday, September 26, 2015"
+output: word_document
+---
+#Impact of servere weather events on population health and the economy in the US  
 ## Synopsis  
 This report aims to describe the impact of severe weather events in the US on population health and the economy by answering two questions. Across the United States, which types of events are most harmful with respect to population health? Across the United States, which types of events have the greatest economic consequences? Underlying analysis helps to anwser these two questions by exploring the data of the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database.  
 Impact on population health is assessed by a Pareto analsysis on the weather event types with highest injury and fatality rates in this database.  
-Economic impact is assessed by a Pareto analsyis on the weather event types causing the higest total cost for property and crop damage.
+Economical impact is assessed by a Pareto analsyis on the weather event types causing the higest total cost for property and crop damage.
  
 ## Data Processing  
 We record the platform information on which this analysis is created.
@@ -43,7 +49,7 @@ Then keep only the data after 1995
 StormData = StormData[StormData$Year > 1995,]
 table(StormData$Year)
 ```
-For the economic impact we need the amounts taking into consideration the exponent information.
+For the economical impact we need the amounts taking into consideration the exponent information.
 ```{r, echo=T, warning = F, message = F}
 summary(StormData$PROPDMGEXP)
 summary(StormData$CROPDMGEXP)
@@ -104,20 +110,20 @@ pareto.chart(Top_HI_I, ylab = "Injuries", main = "Most injuring weather event ty
 abline(h=(sum(HI_I)*.8),col="red",lwd=2)
 ```
 
-### The economic impact
+### The economical impact
 We group the data per event type across the US and over time and we calculate the total dollar value of damage per event type to properties and crop. Inflation is not taken into consideration in this analysis.
 ```{r, echo=T, warning = F, message = F}
 EconImp = StormData %>%
         group_by(EVTYPE) %>%
         summarise(totDMG = sum(PROPDMG) + sum(CROPDMG))
 ```
-Using Pareto analysis to find the event types with highest economic impact in terms of total damage cost.
+Using Pareto analysis to find the event types with highest economical impact in terms of total damage cost.
 Preparing the vector to create the pareto chart, and going to million USD values.
 ```{r, echo=T, warning = F, message = F}
 EI_D = EconImp$totDMG / 10^6
 names(EI_D) = EconImp$EVTYPE
 ```
-Creating the Pareto chart for the economic impact. The red line is at 80% of the total cumulative impact whereas the Pareto chart and table are on the top 15 for readability.
+Creating the Pareto chart for the economical impact. The red line is at 80% of the total cumulative impact whereas the Pareto chart and table are on the top 15 for readability.
 ```{r,echo=T, warning = F, message = F, Pareto3}
 Top_EI_D = head(sort(EI_D, decreasing=TRUE), 15)
 pareto.chart(Top_EI_D, ylab = "Damage (in MUSD)", main = "Highest damage cost weather event types")
